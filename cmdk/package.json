@@ -1,5 +1,5 @@
 {
-  "name": "cmdk",
+  "name": "cmdk-local",
   "version": "0.2.0",
   "license": "MIT",
   "main": "./dist/index.js",
@@ -15,15 +15,14 @@
     "dev": "tsup src --watch"
   },
   "peerDependencies": {
-    "react": "^18.0.0",
-    "react-dom": "^18.0.0"
+    "react": "^17.0.0",
+    "react-dom": "^17.0.0"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "1.0.0",
-    "command-score": "0.1.2"
-  },
-  "devDependencies": {
-    "@types/react": "18.0.15"
+    "@radix-ui/react-id": "^1.0.0",
+    "command-score": "0.1.2",
+    "use-sync-external-store": "^1.2.0"
   },
   "sideEffects": false
 }
