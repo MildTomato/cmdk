@@ -2,7 +2,7 @@ import * as RadixDialog from '@radix-ui/react-dialog'
 import * as React from 'react'
 import commandScore from 'command-score'
 import { useSyncExternalStore } from 'use-sync-external-store/shim'
-import { useId } from '@radix-ui/react-id'
+import { useId, IdProvider } from '@radix-ui/react-id'
 
 type Children = { children?: React.ReactNode }
 type DivProps = React.HTMLAttributes<HTMLDivElement>
@@ -493,77 +493,80 @@ const Command = React.forwardRef<HTMLDivElement, CommandProps>((props, forwarded
   }
 
   return (
-    <div
-      ref={mergeRefs([ref, forwardedRef])}
-      {...etc}
-      cmdk-root=""
-      onKeyDown={(e) => {
-        etc.onKeyDown?.(e)
+    // @ts-ignore
+    <IdProvider>
+      <div
+        ref={mergeRefs([ref, forwardedRef])}
+        {...etc}
+        cmdk-root=""
+        onKeyDown={(e) => {
+          etc.onKeyDown?.(e)
 
-        if (!e.defaultPrevented) {
-          switch (e.key) {
-            case 'n':
-            case 'j': {
-              // vim keybind down
-              if (e.ctrlKey) {
+          if (!e.defaultPrevented) {
+            switch (e.key) {
+              case 'n':
+              case 'j': {
+                // vim keybind down
+                if (e.ctrlKey) {
+                  next(e)
+                }
+                break
+              }
+              case 'ArrowDown': {
                 next(e)
+                break
               }
-              break
-            }
-            case 'ArrowDown': {
-              next(e)
-              break
-            }
-            case 'p':
-            case 'k': {
-              // vim keybind up
-              if (e.ctrlKey) {
+              case 'p':
+              case 'k': {
+                // vim keybind up
+                if (e.ctrlKey) {
+                  prev(e)
+                }
+                break
+              }
+              case 'ArrowUp': {
                 prev(e)
+                break
               }
-              break
-            }
-            case 'ArrowUp': {
-              prev(e)
-              break
-            }
-            case 'Home': {
-              // First item
-              e.preventDefault()
-              updateSelectedToIndex(0)
-              break
-            }
-            case 'End': {
-              // Last item
-              e.preventDefault()
-              last()
-              break
-            }
-            case 'Enter': {
-              // Trigger item onSelect
-              e.preventDefault()
-              const item = getSelectedItem()
-              if (item) {
-                const event = new Event(SELECT_EVENT)
-                item.dispatchEvent(event)
+              case 'Home': {
+                // First item
+                e.preventDefault()
+                updateSelectedToIndex(0)
+                break
+              }
+              case 'End': {
+                // Last item
+                e.preventDefault()
+                last()
+                break
+              }
+              case 'Enter': {
+                // Trigger item onSelect
+                e.preventDefault()
+                const item = getSelectedItem()
+                if (item) {
+                  const event = new Event(SELECT_EVENT)
+                  item.dispatchEvent(event)
+                }
               }
             }
           }
-        }
-      }}
-    >
-      <label
-        cmdk-label=""
-        htmlFor={context.inputId}
-        id={context.labelId}
-        // Screen reader only
-        style={srOnlyStyles}
+        }}
       >
-        {label}
-      </label>
-      <StoreContext.Provider value={store}>
-        <CommandContext.Provider value={context}>{children}</CommandContext.Provider>
-      </StoreContext.Provider>
-    </div>
+        <label
+          cmdk-label=""
+          htmlFor={context.inputId}
+          id={context.labelId}
+          // Screen reader only
+          style={srOnlyStyles}
+        >
+          {label}
+        </label>
+        <StoreContext.Provider value={store}>
+          <CommandContext.Provider value={context}>{children}</CommandContext.Provider>
+        </StoreContext.Provider>
+      </div>
+    </IdProvider>
   )
 })
 

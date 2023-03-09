@@ -1,6 +1,6 @@
 {
-  "name": "cmdk-local",
-  "version": "0.2.0",
+  "name": "cmdk",
+  "version": "0.2.2",
   "license": "MIT",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -15,14 +15,17 @@
     "dev": "tsup src --watch"
   },
   "peerDependencies": {
-    "react": "^17.0.0",
-    "react-dom": "^17.0.0"
+    "react": "^17.0",
+    "react-dom": "^17.0"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "1.0.0",
-    "@radix-ui/react-id": "^1.0.0",
+    "@radix-ui/react-id": "^0.0.6",
     "command-score": "0.1.2",
     "use-sync-external-store": "^1.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^17.0.0"
   },
   "sideEffects": false
 }
