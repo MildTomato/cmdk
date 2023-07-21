@@ -1,5 +1,6 @@
 {
   "name": "cmdk-supabase",
+  "version": "1.0.0",
   "scripts": {
     "build": "pnpm -F cmdk build",
     "dev": "pnpm -F cmdk build --watch",
