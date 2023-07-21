@@ -525,14 +525,14 @@ const Command = React.forwardRef<HTMLDivElement, CommandProps>((props, forwarded
   }
 
   return (
-        // @ts-ignore
+    // @ts-ignore
     <IdProvider>
-    <Primitive.div
-      ref={mergeRefs([ref, forwardedRef])}
-      {...etc}
-      cmdk-root=""
-      onKeyDown={(e) => {
-        etc.onKeyDown?.(e)
+      <Primitive.div
+        ref={mergeRefs([ref, forwardedRef])}
+        {...etc}
+        cmdk-root=""
+        onKeyDown={(e) => {
+          etc.onKeyDown?.(e)
 
           if (!e.defaultPrevented) {
             switch (e.key) {
@@ -586,13 +586,12 @@ const Command = React.forwardRef<HTMLDivElement, CommandProps>((props, forwarded
         }}
       >
         {label}
-      </label>
-      {SlottableWithNestedChildren(props, (child) => (
-        <StoreContext.Provider value={store}>
-          <CommandContext.Provider value={context}>{child}</CommandContext.Provider>
-        </StoreContext.Provider>
-      ))}
-    </Primitive.div>
+        {SlottableWithNestedChildren(props, (child) => (
+          <StoreContext.Provider value={store}>
+            <CommandContext.Provider value={context}>{child}</CommandContext.Provider>
+          </StoreContext.Provider>
+        ))}
+      </Primitive.div>
     </IdProvider>
   )
 })
@@ -887,7 +886,17 @@ const pkg = Object.assign(Command, {
 
 export { pkg as Command, useCmdk as useCommandState }
 
-export { Dialog as CommandDialog, Empty as CommandEmpty, Group as CommandGroup, Input as CommandInput, Item as CommandItem, List as CommandList, Loading as CommandLoading, Command as CommandRoot, Separator as CommandSeparator }
+export {
+  Dialog as CommandDialog,
+  Empty as CommandEmpty,
+  Group as CommandGroup,
+  Input as CommandInput,
+  Item as CommandItem,
+  List as CommandList,
+  Loading as CommandLoading,
+  Command as CommandRoot,
+  Separator as CommandSeparator,
+}
 
 /**
  *
