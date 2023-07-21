@@ -1,6 +1,5 @@
 {
-  "name": "cmdk-root",
-  "private": true,
+  "name": "cmdk-supabase",
   "scripts": {
     "build": "pnpm -F cmdk build",
     "dev": "pnpm -F cmdk build --watch",
