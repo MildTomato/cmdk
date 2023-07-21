@@ -2,7 +2,7 @@
 <img src="./website/public/og.png" />
 </p>
 
-# ⌘K ![cmdk minzip package size](https://img.shields.io/bundlephobia/minzip/cmdk) ![cmdk package version](https://img.shields.io/npm/v/cmdk.svg?colorB=green)
+# ⌘K [![cmdk minzip package size](https://img.shields.io/bundlephobia/minzip/cmdk)](https://www.npmjs.com/package/cmdk?activeTab=code) [![cmdk package version](https://img.shields.io/npm/v/cmdk.svg?colorB=green)](https://www.npmjs.com/package/cmdk)
 
 ⌘K is a command menu React component that can also be used as an accessible combobox. You render items, it filters and sorts them automatically. ⌘K supports a fully composable API <sup>[How?](/ARCHITECTURE.md)</sup>, so you can wrap items in other components or even as static JSX.
 
@@ -51,7 +51,8 @@ const CommandMenu = () => {
   // Toggle the menu when ⌘K is pressed
   React.useEffect(() => {
     const down = (e) => {
-      if (e.key === 'k' && e.metaKey) {
+      if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault()
         setOpen((open) => !open)
       }
     }
@@ -135,7 +136,9 @@ Or disable filtering and sorting entirely:
 
 You can make the arrow keys wrap around the list (when you reach the end, it goes back to the first item) by setting the `loop` prop:
 
+```tsx
 <Command loop />
+```
 
 ### Dialog `[cmdk-dialog]` `[cmdk-overlay]`
 
@@ -196,7 +199,7 @@ To scroll item into view earlier near the edges of the viewport, use scroll-padd
 }
 ```
 
-### Item `[cmdk-item]` `[aria-disabled?]` `[aria-selected?]`
+### Item `[cmdk-item]` `[data-disabled?]` `[data-selected?]`
 
 Item that becomes active on pointer enter. You should provide a unique `value` for each item, but it will be automatically inferred from the `.textContent`.
 
@@ -209,6 +212,8 @@ Item that becomes active on pointer enter. You should provide a unique `value` f
 </Command.Item>
 ```
 
+You can force an item to always render, regardless of filtering, by passing the `forceMount` prop.
+
 ### Group `[cmdk-group]` `[hidden?]`
 
 Groups items together with the given `heading` (`[cmdk-group-heading]`).
@@ -220,6 +225,8 @@ Groups items together with the given `heading` (`[cmdk-group-heading]`).
 ```
 
 Groups will not unmount from the DOM, rather the `hidden` attribute is applied to hide it from view. This may be relevant in your styling.
+
+You can force a group to always render, regardless of filtering, by passing the `forceMount` prop.
 
 ### Separator `[cmdk-separator]`
 

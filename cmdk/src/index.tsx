@@ -1,16 +1,31 @@
 import * as RadixDialog from '@radix-ui/react-dialog'
+import { IdProvider, useId } from '@radix-ui/react-id'
+import { Slot } from '@radix-ui/react-slot'
 import * as React from 'react'
-import commandScore from 'command-score'
 import { useSyncExternalStore } from 'use-sync-external-store/shim'
-import { useId, IdProvider } from '@radix-ui/react-id'
+import { commandScore } from './command-score'
 
 type Children = { children?: React.ReactNode }
-type DivProps = React.HTMLAttributes<HTMLDivElement>
+type DivProps = React.ComponentPropsWithoutRef<typeof Primitive.div>
 
-type LoadingProps = Children & {
-  /** Estimated progress of loading asynchronous options. */
-  progress?: number
+type PrimitiveForwardRefComponent<E extends React.ElementType> = React.ForwardRefExoticComponent<
+  PrimitivePropsWithRef<E>
+>
+type Primitives = { [E in typeof NODES[number]]: PrimitiveForwardRefComponent<E> }
+
+type PrimitivePropsWithRef<E extends React.ElementType> = React.ComponentPropsWithRef<E> & {
+  /**
+   * Change the component to the HTML tag or custom component of the only child. This will merge the original component props with the props of the supplied element/component and change the underlying DOM node.
+   */
+  asChild?: boolean
 }
+
+type LoadingProps = Children &
+  DivProps & {
+    /** Estimated progress of loading asynchronous options. */
+    progress?: number
+  }
+
 type EmptyProps = Children & DivProps & {}
 type SeparatorProps = DivProps & {
   /** Whether this separator should always be rendered. Useful if you disable automatic filtering. */
@@ -18,6 +33,10 @@ type SeparatorProps = DivProps & {
 }
 type DialogProps = RadixDialog.DialogProps &
   CommandProps & {
+    /** Provide a className to the Dialog overlay. */
+    overlayClassName?: string
+    /** Provide a className to the Dialog content. */
+    contentClassName?: string
     /** Provide a custom element the Dialog should portal into. */
     container?: HTMLElement
   }
@@ -45,7 +64,7 @@ type GroupProps = Children &
     /** Whether this group is forcibly rendered regardless of filtering. */
     forceMount?: boolean
   }
-type InputProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'type'> & {
+type InputProps = Omit<React.ComponentPropsWithoutRef<typeof Primitive.input>, 'value' | 'onChange' | 'type'> & {
   /**
    * Optional controlled state for the value of the search input.
    */
@@ -73,6 +92,10 @@ type CommandProps = Children &
      */
     filter?: (value: string, search: string) => number
     /**
+     * Optional default item value when it is initially rendered.
+     */
+    defaultValue?: string
+    /**
      * Optional controlled state of the selected command menu item.
      */
     value?: string
@@ -92,6 +115,7 @@ type Context = {
   group: (id: string) => () => void
   filter: () => boolean
   label: string
+  commandRef: React.RefObject<HTMLDivElement | null>
   // Ids
   listId: string
   labelId: string
@@ -108,6 +132,10 @@ type Store = {
   setState: <K extends keyof State>(key: K, value: State[K], opts?: any) => void
   emit: () => void
 }
+type Group = {
+  id: string
+  forceMount?: boolean
+}
 
 const LIST_SELECTOR = `[cmdk-list-sizer=""]`
 const GROUP_SELECTOR = `[cmdk-group=""]`
@@ -118,6 +146,7 @@ const VALID_ITEM_SELECTOR = `${ITEM_SELECTOR}:not([aria-disabled="true"])`
 const SELECT_EVENT = `cmdk-item-select`
 const VALUE_ATTR = `data-value`
 const defaultFilter: CommandProps['filter'] = (value, search) => commandScore(value, search)
+const NODES = ['div', 'input'] as const
 
 // @ts-ignore
 const CommandContext = React.createContext<Context>(undefined)
@@ -126,7 +155,7 @@ const useCommand = () => React.useContext(CommandContext)
 const StoreContext = React.createContext<Store>(undefined)
 const useStore = () => React.useContext(StoreContext)
 // @ts-ignore
-const GroupContext = React.createContext<string>(undefined)
+const GroupContext = React.createContext<Group>(undefined)
 
 const Command = React.forwardRef<HTMLDivElement, CommandProps>((props, forwardedRef) => {
   const ref = React.useRef<HTMLDivElement>(null)
@@ -134,7 +163,7 @@ const Command = React.forwardRef<HTMLDivElement, CommandProps>((props, forwarded
     /** Value of the search query. */
     search: '',
     /** Currently selected item value. */
-    value: '',
+    value: props.value ?? props.defaultValue?.toLowerCase() ?? '',
     filtered: {
       /** The count of all visible items. */
       count: 0,
@@ -188,7 +217,8 @@ const Command = React.forwardRef<HTMLDivElement, CommandProps>((props, forwarded
         } else if (key === 'value') {
           if (propsRef.current?.value !== undefined) {
             // If controlled, just call the callback instead of updating state internally
-            propsRef.current.onValueChange?.(value as string)
+            const newValue = (value ?? '') as string
+            propsRef.current.onValueChange?.(newValue)
             return
             // opts is a boolean referring to whether it should NOT be scrolled into view
           } else if (!opts) {
@@ -250,14 +280,15 @@ const Command = React.forwardRef<HTMLDivElement, CommandProps>((props, forwarded
           ids.current.delete(id)
           allItems.current.delete(id)
           state.current.filtered.items.delete(id)
+          const selectedItem = getSelectedItem()
 
           // Batch this, multiple items could be removed in one pass
           schedule(4, () => {
             filterItems()
 
-            // The item removed could have been the selected one,
+            // The item removed have been the selected one,
             // so selection should be moved to the first
-            selectFirstItem()
+            if (selectedItem?.getAttribute('id') === id) selectFirstItem()
 
             store.emit()
           })
@@ -278,6 +309,7 @@ const Command = React.forwardRef<HTMLDivElement, CommandProps>((props, forwarded
         return propsRef.current.shouldFilter
       },
       label: label || props['aria-label'],
+      commandRef: ref,
       listId,
       inputId,
       labelId,
@@ -408,7 +440,7 @@ const Command = React.forwardRef<HTMLDivElement, CommandProps>((props, forwarded
   /** Getters */
 
   function getSelectedItem() {
-    return ref.current.querySelector(`${ITEM_SELECTOR}[aria-selected="true"]`)
+    return ref.current?.querySelector(`${ITEM_SELECTOR}[aria-selected="true"]`)
   }
 
   function getValidItems() {
@@ -493,14 +525,14 @@ const Command = React.forwardRef<HTMLDivElement, CommandProps>((props, forwarded
   }
 
   return (
-    // @ts-ignore
+        // @ts-ignore
     <IdProvider>
-      <div
-        ref={mergeRefs([ref, forwardedRef])}
-        {...etc}
-        cmdk-root=""
-        onKeyDown={(e) => {
-          etc.onKeyDown?.(e)
+    <Primitive.div
+      ref={mergeRefs([ref, forwardedRef])}
+      {...etc}
+      cmdk-root=""
+      onKeyDown={(e) => {
+        etc.onKeyDown?.(e)
 
           if (!e.defaultPrevented) {
             switch (e.key) {
@@ -553,19 +585,14 @@ const Command = React.forwardRef<HTMLDivElement, CommandProps>((props, forwarded
           }
         }}
       >
-        <label
-          cmdk-label=""
-          htmlFor={context.inputId}
-          id={context.labelId}
-          // Screen reader only
-          style={srOnlyStyles}
-        >
-          {label}
-        </label>
+        {label}
+      </label>
+      {SlottableWithNestedChildren(props, (child) => (
         <StoreContext.Provider value={store}>
-          <CommandContext.Provider value={context}>{children}</CommandContext.Provider>
+          <CommandContext.Provider value={context}>{child}</CommandContext.Provider>
         </StoreContext.Provider>
-      </div>
+      ))}
+    </Primitive.div>
     </IdProvider>
   )
 })
@@ -578,12 +605,13 @@ const Command = React.forwardRef<HTMLDivElement, CommandProps>((props, forwarded
 const Item = React.forwardRef<HTMLDivElement, ItemProps>((props, forwardedRef) => {
   const id = useId()
   const ref = React.useRef<HTMLDivElement>(null)
-  const groupId = React.useContext(GroupContext)
+  const groupContext = React.useContext(GroupContext)
   const context = useCommand()
   const propsRef = useAsRef(props)
+  const forceMount = propsRef.current?.forceMount ?? groupContext?.forceMount
 
   useLayoutEffect(() => {
-    return context.item(id, groupId)
+    return context.item(id, groupContext?.id)
   }, [])
 
   const value = useValue(id, ref, [props.value, props.children, ref])
@@ -591,13 +619,7 @@ const Item = React.forwardRef<HTMLDivElement, ItemProps>((props, forwardedRef) =
   const store = useStore()
   const selected = useCmdk((state) => state.value && state.value === value.current)
   const render = useCmdk((state) =>
-    props.forceMount
-      ? true
-      : context.filter() === false
-      ? true
-      : !state.search
-      ? true
-      : state.filtered.items.get(id) > 0,
+    forceMount ? true : context.filter() === false ? true : !state.search ? true : state.filtered.items.get(id) > 0,
   )
 
   React.useEffect(() => {
@@ -608,6 +630,7 @@ const Item = React.forwardRef<HTMLDivElement, ItemProps>((props, forwardedRef) =
   }, [render, props.onSelect, props.disabled])
 
   function onSelect() {
+    select()
     propsRef.current.onSelect?.(value.current)
   }
 
@@ -620,19 +643,21 @@ const Item = React.forwardRef<HTMLDivElement, ItemProps>((props, forwardedRef) =
   const { disabled, value: _, onSelect: __, ...etc } = props
 
   return (
-    <div
+    <Primitive.div
       ref={mergeRefs([ref, forwardedRef])}
       {...etc}
+      id={id}
       cmdk-item=""
       role="option"
       aria-disabled={disabled || undefined}
       aria-selected={selected || undefined}
+      data-disabled={disabled || undefined}
       data-selected={selected || undefined}
       onPointerMove={disabled ? undefined : select}
       onClick={disabled ? undefined : onSelect}
     >
       {props.children}
-    </div>
+    </Primitive.div>
   )
 })
 
@@ -641,14 +666,14 @@ const Item = React.forwardRef<HTMLDivElement, ItemProps>((props, forwardedRef) =
  * Grouped items are always shown together.
  */
 const Group = React.forwardRef<HTMLDivElement, GroupProps>((props, forwardedRef) => {
-  const { heading, children, ...etc } = props
+  const { heading, children, forceMount, ...etc } = props
   const id = useId()
   const ref = React.useRef<HTMLDivElement>(null)
   const headingRef = React.useRef<HTMLDivElement>(null)
   const headingId = useId()
   const context = useCommand()
   const render = useCmdk((state) =>
-    props.forceMount ? true : context.filter() === false ? true : !state.search ? true : state.filtered.groups.has(id),
+    forceMount ? true : context.filter() === false ? true : !state.search ? true : state.filtered.groups.has(id),
   )
 
   useLayoutEffect(() => {
@@ -657,10 +682,10 @@ const Group = React.forwardRef<HTMLDivElement, GroupProps>((props, forwardedRef)
 
   useValue(id, ref, [props.value, props.heading, headingRef])
 
-  const inner = <GroupContext.Provider value={id}>{children}</GroupContext.Provider>
+  const contextValue = React.useMemo(() => ({ id, forceMount }), [forceMount])
 
   return (
-    <div
+    <Primitive.div
       ref={mergeRefs([ref, forwardedRef])}
       {...etc}
       cmdk-group=""
@@ -672,10 +697,12 @@ const Group = React.forwardRef<HTMLDivElement, GroupProps>((props, forwardedRef)
           {heading}
         </div>
       )}
-      <div cmdk-group-items="" role="group" aria-labelledby={heading ? headingId : undefined}>
-        {inner}
-      </div>
-    </div>
+      {SlottableWithNestedChildren(props, (child) => (
+        <div cmdk-group-items="" role="group" aria-labelledby={heading ? headingId : undefined}>
+          <GroupContext.Provider value={contextValue}>{child}</GroupContext.Provider>
+        </div>
+      ))}
+    </Primitive.div>
   )
 })
 
@@ -689,7 +716,7 @@ const Separator = React.forwardRef<HTMLDivElement, SeparatorProps>((props, forwa
   const render = useCmdk((state) => !state.search)
 
   if (!alwaysRender && !render) return null
-  return <div ref={mergeRefs([ref, forwardedRef])} {...etc} cmdk-separator="" role="separator" />
+  return <Primitive.div ref={mergeRefs([ref, forwardedRef])} {...etc} cmdk-separator="" role="separator" />
 })
 
 /**
@@ -701,7 +728,13 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>((props, forwardedRe
   const isControlled = props.value != null
   const store = useStore()
   const search = useCmdk((state) => state.search)
+  const value = useCmdk((state) => state.value)
   const context = useCommand()
+
+  const selectedItemId = React.useMemo(() => {
+    const item = context.commandRef.current?.querySelector(`${ITEM_SELECTOR}[${VALUE_ATTR}="${value}"]`)
+    return item?.getAttribute('id')
+  }, [value, context.commandRef])
 
   React.useEffect(() => {
     if (props.value != null) {
@@ -710,7 +743,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>((props, forwardedRe
   }, [props.value])
 
   return (
-    <input
+    <Primitive.input
       ref={forwardedRef}
       {...etc}
       cmdk-input=""
@@ -722,6 +755,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>((props, forwardedRe
       aria-expanded={true}
       aria-controls={context.listId}
       aria-labelledby={context.labelId}
+      aria-activedescendant={selectedItemId}
       id={context.inputId}
       type="text"
       value={isControlled ? props.value : search}
@@ -753,7 +787,7 @@ const List = React.forwardRef<HTMLDivElement, ListProps>((props, forwardedRef) =
       let animationFrame
       const observer = new ResizeObserver(() => {
         animationFrame = requestAnimationFrame(() => {
-          const height = el.getBoundingClientRect().height
+          const height = el.offsetHeight
           wrapper.style.setProperty(`--cmdk-list-height`, height.toFixed(1) + 'px')
         })
       })
@@ -766,7 +800,7 @@ const List = React.forwardRef<HTMLDivElement, ListProps>((props, forwardedRef) =
   }, [])
 
   return (
-    <div
+    <Primitive.div
       ref={mergeRefs([ref, forwardedRef])}
       {...etc}
       cmdk-list=""
@@ -775,10 +809,12 @@ const List = React.forwardRef<HTMLDivElement, ListProps>((props, forwardedRef) =
       id={context.listId}
       aria-labelledby={context.inputId}
     >
-      <div ref={height} cmdk-list-sizer="">
-        {children}
-      </div>
-    </div>
+      {SlottableWithNestedChildren(props, (child) => (
+        <div ref={height} cmdk-list-sizer="">
+          {child}
+        </div>
+      ))}
+    </Primitive.div>
   )
 })
 
@@ -786,12 +822,12 @@ const List = React.forwardRef<HTMLDivElement, ListProps>((props, forwardedRef) =
  * Renders the command menu in a Radix Dialog.
  */
 const Dialog = React.forwardRef<HTMLDivElement, DialogProps>((props, forwardedRef) => {
-  const { open, onOpenChange, container, ...etc } = props
+  const { open, onOpenChange, overlayClassName, contentClassName, container, ...etc } = props
   return (
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
       <RadixDialog.Portal container={container}>
-        <RadixDialog.Overlay cmdk-overlay="" />
-        <RadixDialog.Content aria-label={props.label} cmdk-dialog="">
+        <RadixDialog.Overlay cmdk-overlay="" className={overlayClassName} />
+        <RadixDialog.Content aria-label={props.label} cmdk-dialog="" className={contentClassName}>
           <Command ref={forwardedRef} {...etc} />
         </RadixDialog.Content>
       </RadixDialog.Portal>
@@ -811,7 +847,7 @@ const Empty = React.forwardRef<HTMLDivElement, EmptyProps>((props, forwardedRef)
   }, [])
 
   if (isFirstRender.current || !render) return null
-  return <div ref={forwardedRef} {...props} cmdk-empty="" role="presentation" />
+  return <Primitive.div ref={forwardedRef} {...props} cmdk-empty="" role="presentation" />
 })
 
 /**
@@ -821,7 +857,7 @@ const Loading = React.forwardRef<HTMLDivElement, LoadingProps>((props, forwarded
   const { progress, children, ...etc } = props
 
   return (
-    <div
+    <Primitive.div
       ref={forwardedRef}
       {...etc}
       cmdk-loading=""
@@ -831,8 +867,10 @@ const Loading = React.forwardRef<HTMLDivElement, LoadingProps>((props, forwarded
       aria-valuemax={100}
       aria-label="Loading..."
     >
-      <div aria-hidden>{children}</div>
-    </div>
+      {SlottableWithNestedChildren(props, (child) => (
+        <div aria-hidden>{child}</div>
+      ))}
+    </Primitive.div>
   )
 })
 
@@ -847,18 +885,9 @@ const pkg = Object.assign(Command, {
   Loading,
 })
 
-export { useCmdk as useCommandState }
-export { pkg as Command }
+export { pkg as Command, useCmdk as useCommandState }
 
-export { Command as CommandRoot }
-export { List as CommandList }
-export { Item as CommandItem }
-export { Input as CommandInput }
-export { Group as CommandGroup }
-export { Separator as CommandSeparator }
-export { Dialog as CommandDialog }
-export { Empty as CommandEmpty }
-export { Loading as CommandLoading }
+export { Dialog as CommandDialog, Empty as CommandEmpty, Group as CommandGroup, Input as CommandInput, Item as CommandItem, List as CommandList, Loading as CommandLoading, Command as CommandRoot, Separator as CommandSeparator }
 
 /**
  *
@@ -974,6 +1003,39 @@ const useScheduleLayoutEffect = () => {
     ss({})
   }
 }
+
+function renderChildren(children: React.ReactElement) {
+  const childrenType = children.type as any
+  // The children is a component
+  if (typeof childrenType === 'function') return childrenType(children.props)
+  // The children is a component with `forwardRef`
+  else if ('render' in childrenType) return childrenType.render(children.props)
+  // It's a string, boolean, etc.
+  else return children
+}
+
+function SlottableWithNestedChildren(
+  { asChild, children }: { asChild?: boolean; children?: React.ReactNode },
+  render: (child: React.ReactNode) => JSX.Element,
+) {
+  if (asChild && React.isValidElement(children)) {
+    return React.cloneElement(renderChildren(children), { ref: (children as any).ref }, render(children.props.children))
+  }
+  return render(children)
+}
+
+const Primitive = NODES.reduce((primitive, node) => {
+  const Node = React.forwardRef((props: PrimitivePropsWithRef<typeof node>, forwardedRef: any) => {
+    const { asChild, ...primitiveProps } = props
+    const Comp: any = asChild ? Slot : node
+
+    return <Comp {...primitiveProps} ref={forwardedRef} />
+  })
+
+  Node.displayName = `Primitive.${node}`
+
+  return { ...primitive, [node]: Node }
+}, {} as Primitives)
 
 const srOnlyStyles = {
   position: 'absolute',
